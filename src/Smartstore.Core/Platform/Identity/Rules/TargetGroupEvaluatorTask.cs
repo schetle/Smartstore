@@ -27,25 +27,34 @@ public partial class TargetGroupEvaluatorTask(
         var numDeleted = 0;
         var numAdded = 0;
         var rolesCount = 0;
+        var roleIds = ctx.Parameters.TryGetValue("CustomerRoleIds", out string value) ? value.ToIntArray() : null;
 
         using (var scope = new DbContextScope(_db, autoDetectChanges: false, minHookImportance: HookImportance.Important, deferCommit: true))
         {
             // Delete existing system mappings.
+            // ExecuteDeleteAsync bypasses the change tracker and always executes immediately,
+            // so deferCommit has no effect on it — keeping it inside the scope is intentional.
             var deleteQuery = _db.CustomerRoleMappings.Where(x => x.IsSystemMapping);
-            if (ctx.Parameters.ContainsKey("CustomerRoleIds"))
+            if (roleIds != null)
             {
-                var roleIds = ctx.Parameters["CustomerRoleIds"].ToIntArray();
                 deleteQuery = deleteQuery.Where(x => roleIds.Contains(x.CustomerRoleId));
             }
 
             numDeleted = await deleteQuery.ExecuteDeleteAsync(cancelToken);
 
             // Insert new customer role mappings.
-            var roles = await _db.CustomerRoles
+            var roleQuery = _db.CustomerRoles
                 .Include(x => x.RuleSets)
                 .ThenInclude(x => x.Rules)
                 .AsNoTracking()
-                .AsSplitQuery()
+                .AsSplitQuery();
+
+            if (roleIds != null)
+            {
+                roleQuery = roleQuery.Where(x => roleIds.Contains(x.Id));
+            }
+
+            var roles = await roleQuery
                 .Where(x => x.Active && x.RuleSets.Any(y => y.IsActive))
                 .ToListAsync(cancelToken);
             rolesCount = roles.Count;

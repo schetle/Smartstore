@@ -244,3 +244,11 @@ src/Tools/Smartstore.WebApi.Client/Smartstore.WebApi.Client.sln
 
 src/Smartstore.Packager.sln
 Log.txt
+
+# Python test artifacts
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.pyo
